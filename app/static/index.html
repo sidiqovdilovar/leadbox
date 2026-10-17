@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leadbox — приём заявок с сайта</title>
+<meta name="description" content="Форма заявки, API, база и админка с A/B-тестом заголовка. FastAPI, SQLite, pytest, Docker.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23191c22'/%3E%3Ctext x='16' y='22' font-family='Arial' font-size='13' font-weight='bold' fill='%23a8d5b5' text-anchor='middle'%3ELB%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#form">К форме</a>
+
+<header class="top">
+  <div class="wrap top__in">
+    <a class="brand" href="/"><i aria-hidden="true"></i>Leadbox</a>
+    <nav class="top__nav">
+      <a href="#how">Как работает</a>
+      <a href="/admin">Админка</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap hero__grid">
+      <div>
+        <span class="label">Приём заявок</span>
+        <h1 id="headline">Заявки с сайта — в одном месте</h1>
+        <p class="lead" id="subline">Форма проверяет ввод, сервер хранит заявки, админка показывает их списком. Заголовок на этой странице меняется по A/B-тесту — счётчики видны в статистике.</p>
+
+        <form id="lead-form" class="card" novalidate>
+          <div class="field">
+            <label for="name">Имя</label>
+            <input id="name" name="name" type="text" autocomplete="name" maxlength="80" placeholder="Как к вам обращаться">
+            <p class="field__err" data-for="name" role="alert"></p>
+          </div>
+          <div class="field">
+            <label for="contact">Телефон, почта или ник Telegram</label>
+            <input id="contact" name="contact" type="text" autocomplete="tel" maxlength="64" placeholder="+7 916 123-45-67">
+            <p class="field__hint">Одно поле: телефон, name@example.com или @nickname</p>
+            <p class="field__err" data-for="contact" role="alert"></p>
+          </div>
+          <div class="field">
+            <label for="message">Комментарий <span class="muted">— не обязательно</span></label>
+            <textarea id="message" name="message" rows="3" maxlength="600" placeholder="Что нужно и в какие сроки"></textarea>
+          </div>
+          <button class="btn" type="submit" id="submit">Отправить заявку</button>
+          <p class="form__err" id="form-error" role="alert"></p>
+          <p class="form__ok" id="form-ok" role="status">Заявка принята. Номер: <b id="lead-id">—</b>. Посмотреть её можно в админке.</p>
+          <p class="fineprint">Данные из формы использую только для ответа на заявку и не передаю третьим лицам.</p>
+        </form>
+      </div>
+
+      <aside class="side" id="how">
+        <div class="side__block">
+          <span class="label">Что внутри</span>
+          <ul class="list">
+            <li><b>Проверка на сервере.</b> Телефон приводится к +7…, почта и ник проверяются регуляркой, мусор не сохраняется.</li>
+            <li><b>Защита от спама.</b> Повторная заявка с тем же контактом за сутки не пройдёт, больше пяти в час с одного адреса — тоже.</li>
+            <li><b>A/B-тест.</b> Посетителю выдаётся вариант A или B, кука закрепляет выбор, конверсия считается по вариантам.</li>
+            <li><b>UTM-метки.</b> Из адреса страницы сохраняются источник и кампания — видно, откуда пришла заявка.</li>
+          </ul>
+        </div>
+        <div class="side__block side__block--dark">
+          <span class="label">Стек</span>
+          <p>FastAPI и SQLite на бэкенде, чистый JavaScript на фронте, pytest для тестов. Запускается в Docker, проверка в CI на каждый коммит.</p>
+          <a class="side__link" href="/admin">Открыть админку →</a>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap band__in">
+      <div class="stat"><b id="stat-views">—</b><span>просмотры формы</span></div>
+      <div class="stat"><b id="stat-leads">—</b><span>заявки в базе</span></div>
+      <div class="stat"><b id="stat-conv">—</b><span>конверсия, %</span></div>
+      <div class="stat"><b id="stat-variant">—</b><span>ваш вариант заголовка</span></div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot__in">
+    <span>Leadbox — приём заявок: FastAPI, SQLite, pytest, Docker.</span>
+    <a href="/admin">Админка</a>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

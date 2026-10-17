@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leadbox — админка</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23191c22'/%3E%3Ctext x='16' y='22' font-family='Arial' font-size='13' font-weight='bold' fill='%23a8d5b5' text-anchor='middle'%3ELB%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap top__in">
+    <a class="brand" href="/"><i aria-hidden="true"></i>Leadbox</a>
+    <nav class="top__nav"><a href="/">К форме</a></nav>
+  </div>
+</header>
+
+<main class="admin">
+  <div class="wrap">
+    <span class="label">Админка</span>
+    <h1>Заявки и статистика</h1>
+    <p class="lead">Нужен токен администратора. Он выдаётся вместе с доступом к сервису и хранится только в этой вкладке.</p>
+
+    <div class="token-row">
+      <input id="token" type="password" placeholder="Токен администратора" aria-label="Токен администратора" autocomplete="off">
+      <button class="btn" id="load" type="button">Показать данные</button>
+      <button class="btn btn--ghost" id="logout" type="button">Забыть токен</button>
+    </div>
+    <p class="form__err" id="admin-error" role="alert"></p>
+
+    <div class="cards" id="cards" hidden>
+      <div class="stat"><b id="c-views">0</b><span>просмотры</span></div>
+      <div class="stat"><b id="c-leads">0</b><span>заявки</span></div>
+      <div class="stat"><b id="c-a">0%</b><span>конверсия A</span></div>
+      <div class="stat"><b id="c-b">0%</b><span>конверсия B</span></div>
+    </div>
+
+    <div class="table-wrap" id="table-wrap" hidden>
+      <table>
+        <thead>
+          <tr><th>№</th><th>Когда</th><th>Имя</th><th>Контакт</th><th>Сообщение</th><th>Метка</th><th>Вариант</th><th></th></tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <p class="empty" id="empty" hidden>Заявок пока нет.</p>
+    </div>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot__in"><span>Leadbox — панель заявок</span><a href="/">К форме</a></div>
+</footer>
+
+<script>
+(function () {
+  var input = document.getElementById('token');
+  var err = document.getElementById('admin-error');
+  var saved = sessionStorage.getItem('lb_token') || '';
+  if (saved) input.value = saved;
+
+  function esc(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function headers() {
+    return { Authorization: 'Bearer ' + input.value.trim() };
+  }
+
+  function load() {
+    err.textContent = '';
+    var token = input.value.trim();
+    if (!token) { err.textContent = 'Введите токен.'; return; }
+    sessionStorage.setItem('lb_token', token);
+
+    fetch('/api/stats', { headers: headers() }).then(function (r) {
+      if (r.status === 401 || r.status === 403) { throw new Error('Токен не подошёл.'); }
+      return r.json();
+    }).then(function (data) {
+      document.getElementById('cards').hidden = false;
+      document.getElementById('c-views').textContent = (data.views.A || 0) + (data.views.B || 0);
+      document.getElementById('c-leads').textContent = data.total_leads;
+      document.getElementById('c-a').textContent = String(data.conversion.A || 0).replace('.', ',') + '%';
+      document.getElementById('c-b').textContent = String(data.conversion.B || 0).replace('.', ',') + '%';
+    }).catch(function (e) { err.textContent = e.message || 'Не удалось загрузить статистику.'; });
+
+    fetch('/api/leads?limit=100', { headers: headers() }).then(function (r) {
+      if (r.status === 401 || r.status === 403) { throw new Error('Токен не подошёл.'); }
+      return r.json();
+    }).then(function (data) {
+      var tbody = document.getElementById('rows');
+      var wrap = document.getElementById('table-wrap');
+      var empty = document.getElementById('empty');
+      wrap.hidden = false;
+      tbody.innerHTML = '';
+      empty.hidden = data.items.length > 0;
+      data.items.forEach(function (item) {
+        var tr = document.createElement('tr');
+        var when = item.created_at ? item.created_at.replace('T', ' ').replace('+00:00', '') : '';
+        tr.innerHTML =
+          '<td>' + esc(item.id) + '</td>' +
+          '<td>' + esc(when) + '</td>' +
+          '<td>' + esc(item.name) + '</td>' +
+          '<td><span class="type">' + esc(item.contact_type) + '</span><br>' + esc(item.contact) + '</td>' +
+          '<td>' + esc(item.message || '—') + '</td>' +
+          '<td>' + esc([item.utm_source, item.utm_campaign].filter(Boolean).join(' / ') || '—') + '</td>' +
+          '<td>' + esc(item.variant) + '</td>' +
+          '<td><button class="del" type="button" data-id="' + esc(item.id) + '">удалить</button></td>';
+        tbody.appendChild(tr);
+      });
+    }).catch(function (e) { err.textContent = e.message || 'Не удалось загрузить заявки.'; });
+  }
+
+  document.getElementById('load').addEventListener('click', load);
+  document.getElementById('logout').addEventListener('click', function () {
+    sessionStorage.removeItem('lb_token');
+    input.value = '';
+    document.getElementById('cards').hidden = true;
+    document.getElementById('table-wrap').hidden = true;
+    err.textContent = '';
+  });
+  input.addEventListener('keydown', function (e) { if (e.key === 'Enter') load(); });
+
+  document.getElementById('rows').addEventListener('click', function (e) {
+    var btn = e.target.closest('.del');
+    if (!btn) return;
+    fetch('/api/leads/' + btn.getAttribute('data-id'), { method: 'DELETE', headers: headers() })
+      .then(function (r) { if (!r.ok) throw new Error('Не удалось удалить'); load(); })
+      .catch(function (e) { err.textContent = e.message; });
+  });
+
+  if (saved) load();
+})();
+</script>
+</body>
+</html>

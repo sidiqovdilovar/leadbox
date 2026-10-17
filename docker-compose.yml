@@ -1,0 +1,15 @@
+services:
+  leadbox:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-dev-token}
+      IP_SALT: ${IP_SALT:-change-me}
+      RATE_LIMIT_PER_HOUR: "5"
+    volumes:
+      - leadbox-data:/data
+    restart: unless-stopped
+
+volumes:
+  leadbox-data:

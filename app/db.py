@@ -54,7 +54,14 @@ def connect():
 
 
 def init_db() -> None:
+    """Схема и режим журнала.
+
+    WAL включается здесь, а не в каждом соединении: настройка хранится в самом
+    файле базы. С ним читатели не ждут писателя — админка и статистика не
+    тормозят форму под нагрузкой.
+    """
     with connect() as conn:
+        conn.execute("PRAGMA journal_mode=WAL")
         conn.executescript(SCHEMA)
 
 
@@ -71,6 +78,66 @@ def add_lead(data: dict, ip_hash: str) -> int:
             ),
         )
         return int(cur.lastrowid)
+
+
+class RateLimited(Exception):
+    """Слишком много заявок с одного адреса за последний час."""
+
+
+class DuplicateContact(Exception):
+    """Заявка с этим контактом уже есть за последние сутки."""
+
+
+def create_lead(data: dict, ip_hash: str, rate_limit: int) -> int:
+    """Проверки и вставка — в одной транзакции.
+
+    Между «проверил» и «записал» не должно быть окна: иначе два одновременных
+    запроса с одним контактом оба проходят проверку дубля и оба пишут в базу.
+    ``BEGIN IMMEDIATE`` сразу берёт блокировку записи, поэтому проверки и
+    вставка выполняются встык. Поймано нагрузочным тестом: 30 одновременных
+    заявок с одним контактом давали до 22 принятых вместо одной.
+    """
+    path = db_path()
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    conn = sqlite3.connect(path, timeout=10, isolation_level=None)
+    conn.row_factory = sqlite3.Row
+    hour_ago = (datetime.now(timezone.utc) - timedelta(hours=1)).replace(microsecond=0).isoformat()
+    day_ago = (datetime.now(timezone.utc) - timedelta(hours=24)).replace(microsecond=0).isoformat()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        from_ip = conn.execute(
+            "SELECT COUNT(*) AS n FROM leads WHERE ip_hash = ? AND created_at >= ?",
+            (ip_hash, hour_ago),
+        ).fetchone()["n"]
+        if from_ip >= rate_limit:
+            conn.execute("ROLLBACK")
+            raise RateLimited
+        if conn.execute(
+            "SELECT 1 FROM leads WHERE contact = ? AND created_at >= ? LIMIT 1",
+            (data["contact"], day_ago),
+        ).fetchone():
+            conn.execute("ROLLBACK")
+            raise DuplicateContact
+        cur = conn.execute(
+            """INSERT INTO leads (created_at, name, contact_type, contact, message,
+                                  utm_source, utm_campaign, variant, ip_hash)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
+            (
+                now(), data["name"], data["contact_type"], data["contact"],
+                data["message"], data["utm_source"], data["utm_campaign"],
+                data["variant"], ip_hash,
+            ),
+        )
+        lead_id = int(cur.lastrowid)
+        conn.execute("COMMIT")
+        return lead_id
+    except (RateLimited, DuplicateContact):
+        raise
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+    finally:
+        conn.close()
 
 
 def find_recent(contact: str, hours: int = 24) -> sqlite3.Row | None:

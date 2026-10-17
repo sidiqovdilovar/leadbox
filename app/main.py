@@ -79,17 +79,18 @@ def create_lead(payload: LeadIn, request: Request):
         return JSONResponse(status_code=422, content={"ok": False, "errors": errors})
 
     hashed = ip_hash(request)
-    if db.count_from_ip(hashed) >= RATE_LIMIT_PER_HOUR:
+    try:
+        lead_id = db.create_lead(clean, hashed, RATE_LIMIT_PER_HOUR)
+    except db.RateLimited:
         return JSONResponse(
             status_code=429,
             content={"ok": False, "errors": {"form": "Слишком много заявок с этого адреса. Попробуйте через час."}},
         )
-    if db.find_recent(clean["contact"]):
+    except db.DuplicateContact:
         return JSONResponse(
             status_code=409,
             content={"ok": False, "errors": {"contact": "Заявка с этим контактом уже есть за последние сутки."}},
         )
-    lead_id = db.add_lead(clean, hashed)
     return {"ok": True, "id": lead_id}
 
 

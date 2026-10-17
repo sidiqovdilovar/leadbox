@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<a class="skip" href="#form">К форме</a>
+<a class="skip" href="#main">К содержанию</a>
 
 <header class="top">
   <div class="wrap top__in">
@@ -21,7 +21,7 @@
   </div>
 </header>
 
-<main>
+<main id="main" tabindex="-1">
   <section class="hero">
     <div class="wrap hero__grid">
       <div>
@@ -52,7 +52,7 @@
         </form>
       </div>
 
-      <aside class="side" id="how">
+      <div class="side" id="how" role="region" aria-label="Как работает форма">
         <div class="side__block">
           <span class="label">Что внутри</span>
           <ul class="list">
@@ -67,7 +67,7 @@
           <p>FastAPI и SQLite на бэкенде, чистый JavaScript на фронте, pytest для тестов. Запускается в Docker, проверка в CI на каждый коммит.</p>
           <a class="side__link" href="/admin">Открыть админку →</a>
         </div>
-      </aside>
+      </div>
     </div>
   </section>
 

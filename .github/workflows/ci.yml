@@ -17,3 +17,21 @@ jobs:
         run: pip install -r requirements-dev.txt
       - name: Тесты
         run: pytest
+
+  a11y:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Зависимости
+        run: pip install -r requirements.txt && pip install playwright==1.55.0
+      - name: Браузер
+        run: python -m playwright install --with-deps chromium
+      - name: Сервис
+        run: |
+          ADMIN_TOKEN=ci-token LEADBOX_DB=/tmp/ci.db python -m uvicorn app.main:app --port 8000 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/api/health && break; sleep 1; done
+      - name: Проверка доступности
+        run: python checks/a11y.py http://127.0.0.1:8000

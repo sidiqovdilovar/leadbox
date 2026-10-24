@@ -35,3 +35,15 @@ jobs:
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/api/health && break; sleep 1; done
       - name: Проверка доступности
         run: python checks/a11y.py http://127.0.0.1:8000
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Сборка образа
+        run: docker build -t leadbox-ci .
+      - name: Запуск и smoke-проверка
+        run: |
+          docker run -d --rm --name leadbox -p 8000:8000 leadbox-ci
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/api/health && break; sleep 1; done
+          docker stop leadbox
